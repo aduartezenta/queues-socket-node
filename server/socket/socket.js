@@ -1,23 +1,43 @@
 const { io } = require('../server')
+const { TicketController } = require('../classes/ticket-controller')
+
+const ticketController = new TicketController()
 
 io.on('connection', (client) => {
     console.log('User connected');
 
-    // Trigger when user disconnect
-    client.on('disconnect', () => {
-        console.log('User disconnected');
+    client.on('nextTicketNumber', (data, callback) => {
+        callback(ticketController.nextTicketNumber())
+
+        client.broadcast.emit('getLastTickerNumber', {
+            currentTicketNumber: ticketController.getLastTickerNumber()
+        })
     })
 
-    // Send message to frontend
-    client.emit('sendMessage', {
-        user: 'Admin',
-        message: '¡¡Welcome!!'
+    client.on('serveTicket', (data, callback) => {
+        if (!data.workstation) {
+            callback({
+                err: true,
+                message: 'The workstation is required'
+            })
+        }
+
+        let serveTicket = ticketController.serveTicket(data.workstation)
+        if (serveTicket.ok) {
+            client.broadcast.emit('getLatestTickets', {
+                currentTicketNumber: ticketController.getLastTickerNumber(),
+                latestTickets: ticketController.getLatestTickers()
+            })
+        }
+        callback(serveTicket)
     })
 
-    // Trigger when user send a message
-    client.on('sendMessage', (data, callback) => {
-        // callback("Recibido")
-        // Emit to broadcast 
-        client.broadcast.emit('sendMessage', data)
+    client.emit('getLastTickerNumber', {
+        currentTicketNumber: ticketController.getLastTickerNumber()
     })
+
+    client.emit('getLatestTickets', {
+        latestTickets: ticketController.getLatestTickers()
+    })
+
 })
